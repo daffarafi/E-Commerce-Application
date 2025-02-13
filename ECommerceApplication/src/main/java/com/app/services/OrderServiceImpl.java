@@ -5,12 +5,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.app.payloads.*;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import com.app.entites.Cart;
@@ -21,9 +23,6 @@ import com.app.entites.Payment;
 import com.app.entites.Product;
 import com.app.exceptions.APIException;
 import com.app.exceptions.ResourceNotFoundException;
-import com.app.payloads.OrderDTO;
-import com.app.payloads.OrderItemDTO;
-import com.app.payloads.OrderResponse;
 import com.app.repositories.CartItemRepo;
 import com.app.repositories.CartRepo;
 import com.app.repositories.OrderItemRepo;
@@ -32,6 +31,7 @@ import com.app.repositories.PaymentRepo;
 import com.app.repositories.UserRepo;
 
 import jakarta.transaction.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 @Transactional
 @Service
@@ -65,13 +65,15 @@ public class OrderServiceImpl implements OrderService {
 	public ModelMapper modelMapper;
 
 	@Override
-	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod) {
+	public OrderDTO placeOrder(String email, Long cartId, String paymentMethod, PaymentCreditCardDTO paymentDTO) {
 
 		Cart cart = cartRepo.findCartByEmailAndCartId(email, cartId);
 
 		if (cart == null) {
 			throw new ResourceNotFoundException("Cart", "cartId", cartId);
 		}
+
+		if (!paymentMethod.equals("CREDIT_CARD")) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only CREDIT_CARD payment is allowed");
 
 		Order order = new Order();
 
@@ -84,6 +86,8 @@ public class OrderServiceImpl implements OrderService {
 		Payment payment = new Payment();
 		payment.setOrder(order);
 		payment.setPaymentMethod(paymentMethod);
+		payment.setCardNumber(paymentDTO.getCardNumber());
+		payment.setCvc(paymentDTO.getCvc());
 
 		payment = paymentRepo.save(payment);
 
